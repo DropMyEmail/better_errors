@@ -30,6 +30,11 @@ module BetterErrors
     # Set to `{ "127.0.0.1/8", "::1/128" }` by default.
     ALLOWED_IPS = Set.new
 
+    # Store the latest error_page for access in subsequent requests
+    class << self
+      attr_accessor :latest_error_page
+    end
+
     # Adds an address to the set of IP addresses allowed to access Better
     # Errors.
     def self.allow_ip!(addr)
@@ -84,6 +89,7 @@ module BetterErrors
       @app.call env
     rescue Exception => ex
       @error_page = @handler.new ex, env
+      self.class.latest_error_page = @error_page
       log_exception
       show_error_page(env, ex)
     end
@@ -124,6 +130,7 @@ module BetterErrors
     end
 
     def internal_call(env, opts)
+      @error_page ||= self.class.latest_error_page
       if opts[:id] != @error_page.id
         return [200, { "Content-Type" => "text/plain; charset=utf-8" }, [JSON.dump(error: "Session expired")]]
       end
